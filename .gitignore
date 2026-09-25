@@ -1,0 +1,10 @@
+# 补丁脚本的历史备份（本地回滚用，不进仓）
+patch.mjs.bak-*
+*.bak-dsh-waitforsocket-timeout
+*.bak-before-*
+*.bak-fixmarks-*
+
+# 临时 / 试验产物
+tmp/
+*.log
+*.out.txt
