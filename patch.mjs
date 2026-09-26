@@ -921,11 +921,15 @@ const SC_PKG_REL = path.join('node_modules', '@deepseek-ai', 'dsh-api-session-co
 /** dsh-util-values 的包相对路径（本体，Node 侧）。 */
 const UTV_PKG_REL = path.join('node_modules', '@deepseek-ai', 'dsh-util-values')
 
-/* ───────── 第十四处（2026-09-25 15:3x 新增）：★ 根治 Firefox 兼容性 bug ─────────
+/* ───────── 第十四处（2026-09-25 15:3x 新增，2026-09-27 扩口径）：★ 根治 Gecko / WebKit 兼容性 bug ─────────
  * 病灶：`hasIntrinsicConstructor` 用**硬编码单行字符串**比对 `Function.prototype.toString`：
  *     Function.prototype.toString.call(constructor) === `function ${name}() { [native code] }`
- *   · Chrome / V8（含 Node）返回 `function Object() { [native code] }`（**单行**）⇒ 相等 ⇒ 正常；
- *   · **Firefox 返回「多行 + 缩进」**：`function Object() {\n    [native code]\n}` ⇒ **恒不相等**！
+ *   · **V8（Chrome / Edge / Node）与 Hermes** 返回 `function Object() { [native code] }`（**单行**）⇒ 相等 ⇒ 正常；
+ *   · ⚠️ **Gecko（Firefox 系）与 WebKit（Safari / iOS 全家）** 返回「**多行 + 缩进**」：
+ *     `function Object() {\n    [native code]\n}` ⇒ **恒不相等**！
+ *     （源码证据：Gecko `js/src/vm/JSFunction.cpp:969`、`:1005` 追加 `"() {\n    [native code]\n}"`；
+ *      WebKit `Source/JavaScriptCore/runtime/FunctionPrototype.cpp` 的 `functionProtoFuncToString` 同样写死多行；
+ *      Hermes `lib/VM/JSLib/Function.cpp:140/:170` 是单行。ECMA-262 此处 implementation-defined，故逐引擎看。）
  * ⇒ 后果链（已用真代码逐环复现）：
  *     hasIntrinsicConstructor(Object.prototype, "Object")  ⇒ false
  *     isIntrinsicObjectPrototype(Object.prototype)         ⇒ false
@@ -934,14 +938,14 @@ const UTV_PKG_REL = path.join('node_modules', '@deepseek-ai', 'dsh-util-values')
  *     snapshotChunk                                        ⇒ 抛 "must be losslessly JSON-serializable"
  *     expandAssistantStream                                ⇒ 抛
  *     ClientAssistantStream.replace                        ⇒ 抛 ⇒ 会话打不开
- *   ⇒ 这一条解释了全部现象：只有 Firefox 里出现、磁盘（Node 侧校验）永远干净、
+ *   ⇒ 这一条解释了全部现象：只在 Gecko / WebKit 里出现、磁盘（Node 侧校验，V8）永远干净、
  *     对象"形状完全正常"、只有 live attempt 那条路才走这个校验。
  *   ⚠️ 验证方式：在 Node 里覆盖 `Function.prototype.toString` 让原生构造器返回多行 ⇒
  *     普通对象**立刻**被判不合规；还原后恢复正常（`logs\firefox-tostring-repro.txt`）。
  * 修法：比较前把连续空白规范化为单个空格（一行内联，不引入新变量、避免命名冲突）。
  * 影响面：**只放宽"原生构造器判定"** —— 只会把"被误判为不合规"改回合规，**不会把非法值判成合法**。 */
 const FIREFOX_TS_BEFORE = 'return constructor.name === name && constructor.prototype === prototype && Function.prototype.toString.call(constructor) === `function ${name}() { [native code] }`;'
-const FIREFOX_TS_MARK = '/* PATCH(${MARK}:firefox-tostring) —— Firefox 的 Function.prototype.toString 对原生函数返回「多行 + 缩进」，原判据硬编码单行 ⇒ 恒不相等 ⇒ 一切普通对象被判「不是无损 JSON」。修法：比较前规范化空白（只放宽，不会把非法判成合法）。 */'
+const FIREFOX_TS_MARK = '/* PATCH(${MARK}:firefox-tostring) —— Gecko（Firefox 系）与 WebKit（Safari / iOS 全家）的 Function.prototype.toString 对内置函数返回「多行 + 缩进」，原判据硬编码单行 ⇒ 恒不相等 ⇒ 一切普通对象被判「不是无损 JSON」。修法：比较前规范化空白（只放宽，不会把非法判成合法）。 */'
 const FIREFOX_TS_AFTER_BUN = FIREFOX_TS_MARK + '\n\t\t\treturn constructor.name === name && constructor.prototype === prototype && Function.prototype.toString.call(constructor).replace(/\\s+/g, " ").trim() === `function ${name}() { [native code] }`;'
 const FIREFOX_TS_AFTER_SRC = FIREFOX_TS_MARK + '\n\t\treturn constructor.name === name && constructor.prototype === prototype && Function.prototype.toString.call(constructor).replace(/\\s+/g, " ").trim() === `function ${name}() { [native code] }`;'
 
@@ -994,12 +998,12 @@ const TARGETS = [
     edits: [{ tag: 'ui-error-code', before: UI_CHAT_BEFORE, after: UI_CHAT_AFTER }],
   },
   {
-    label: 'session-controller · bundle —— ★ Firefox 兼容性根治（Function.prototype.toString 多行）',
+    label: 'session-controller · bundle —— ★ Gecko / WebKit 兼容性根治（Function.prototype.toString 多行）',
     file: path.join(DSH_ROOT, SC_PKG_REL, 'lib', 'client.js'),
     edits: [{ tag: 'firefox-tostring', before: FIREFOX_TS_BEFORE, after: FIREFOX_TS_AFTER_BUN }],
   },
   {
-    label: 'dsh-util-values · 本体 —— ★ Firefox 兼容性根治（同上，保持一致）',
+    label: 'dsh-util-values · 本体 —— ★ Gecko / WebKit 兼容性根治（同上，保持一致）',
     file: path.join(DSH_ROOT, UTV_PKG_REL, 'lib', 'index.js'),
     edits: [{ tag: 'firefox-tostring', before: FIREFOX_TS_BEFORE, after: FIREFOX_TS_AFTER_SRC }],
   },

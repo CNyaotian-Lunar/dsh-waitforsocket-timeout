@@ -4,13 +4,13 @@
 
 1. **Remote stream socket 没有超时兜底** ⇒ socket 卡在 `CONNECTING` 时永久等待（→ 加 5 秒硬死线）；
 2. **`doOpen` / `resync` 的状态机漏格** ⇒ 异常路径与换代路径把 `openState` 永久留在 `loading`（→ 修 3 处 + `cold` 自动重开）；
-3. ⭐ **Firefox 兼容性 bug（根治）** ⇒ `Function.prototype.toString` 在 Firefox 返回「**多行**」而判据硬编码「**单行**」⇒ **任何普通对象都被判「不是无损 JSON」** ⇒ 会话打不开（→ 比较前规范化空白）。
+3. ⭐ **Gecko / WebKit 兼容性 bug（根治）** ⇒ `Function.prototype.toString` 对内置函数在 **Gecko（Firefox 系）与 WebKit（Safari、iOS 全家）** 返回「**多行**」，而判据硬编码「**单行**」⇒ **任何普通对象都被判「不是无损 JSON」** ⇒ 会话打不开（→ 比较前规范化空白）。⚠️ V8（Chrome / Edge / Node）与 Hermes **不受影响**。
 
 **English:** A set of **temporary patches** for DSH (DeepSeek Harness) that fix three classes of trouble making "**switching to a running session hang or error out**":
 
 1. the Remote stream socket has **no timeout** ⇒ it waits forever when the socket parks in `CONNECTING` (→ a hard 5 s deadline);
 2. **state-machine holes** in `doOpen` / `resync` leave `openState` stuck at `loading` on the error path and the generation-bump path (→ 3 fixes + auto-reopen from `cold`);
-3. ⭐ **a Firefox compatibility bug (root-cause fix)** — `Function.prototype.toString` returns a **multi-line** string in Firefox while the check hard-codes a **single-line** one ⇒ **every plain object is judged "not losslessly JSON"** ⇒ sessions fail to open (→ normalize whitespace before comparing).
+3. ⭐ **a Gecko / WebKit compatibility bug (root-cause fix)** — for built-in functions, `Function.prototype.toString` returns a **multi-line** string on **Gecko (Firefox family) and WebKit (Safari, plus every browser on iOS)**, while the check hard-codes a **single-line** one ⇒ **every plain object is judged "not losslessly JSON"** ⇒ sessions fail to open (→ normalize whitespace before comparing). ⚠️ V8 (Chrome / Edge / Node) and Hermes are **not affected**.
 
 > ⚠️ **这是临时补丁，不是上游代码。** 上游修好后请执行 `revert` 并停止使用。
 > ⚠️ **English:** This is a **temporary patch, not upstream code.** Once upstream fixes it, run `revert` and stop using it.
@@ -26,17 +26,17 @@
 | DSH | **`0.1.7-rc.2`** |
 | 受补丁的包 / Patched packages | `@deepseek-ai/dsh-api-gateway`、`@deepseek-ai/dsh-api-session-controller`、`@deepseek-ai/dsh-client-ui-chat`、`@deepseek-ai/dsh-util-values` —— **均为 `0.1.7-rc.2`** |
 | 操作系统 / OS | **Windows 11 家庭版（build 26200）** |
-| 浏览器 / Browser | ⭐ **Firefox** —— 第 3 层的 bug **只在 Firefox 出现**；Chrome / Edge **不会触发** |
+| 浏览器 / Browser | ⭐ **Firefox**（作者实测）—— 第 3 层的 bug 出现在**一切对内置函数返回「多行 `toString`」的引擎**上：**Gecko（Firefox / Waterfox / LibreWolf / Tor Browser）** 与 **WebKit（Safari、iOS/iPadOS 上的一切浏览器）**；**Chrome / Edge / Brave / Opera 等 V8 系不触发**（2026-09-27 按三家引擎源码扩口径，详见第三层） |
 | Node | `v24.20.0` |
 | 安装形态 / Install layout | 自定义安装根（**任意路径均可**）+ profile 在 `~/.dsh/profiles/web` |
 | 端口 / Port | 12073（**与补丁无关**，仅说明作者环境） |
 
-**English:** DSH `0.1.7-rc.2`; the four patched packages are all `0.1.7-rc.2`; OS Windows 11 (build 26200); browser **Firefox** (layer-3 bug is Firefox-only — Chrome/Edge do not trigger it); Node `v24.20.0`; custom install root + profile under `~/.dsh/profiles/web`; port 12073 (irrelevant to the patch, context only).
+**English:** DSH `0.1.7-rc.2`; the four patched packages are all `0.1.7-rc.2`; OS Windows 11 (build 26200); browser **Firefox** (the author's test browser — the layer-3 bug hits **any engine whose `Function.prototype.toString` returns the multi-line form for built-ins**: **Gecko (Firefox family) and WebKit (Safari, plus every browser on iOS)**; it does **not** trigger on V8 (Chrome / Edge / Brave / Opera); re-scoped 2026-09-27 from engine sources, see layer 3); Node `v24.20.0`; custom install root + profile under `~/.dsh/profiles/web`; port 12073 (irrelevant to the patch, context only).
 
 ⇒ 由此推出两点 / two consequences：
 
-1. **不是 Firefox 用户**：第 3 层（`firefox-tostring`）大概率**用不上** —— 但打上**无害**（它只是把"原生构造器判定"改得更健壮）。
-   **English:** If you are not on Firefox, layer 3 is probably unnecessary — but harmless (it only makes the "native constructor" check more robust).
+1. **既不用 Firefox、也不用 Safari（含 iOS 上的任何浏览器）**：第 3 层（`firefox-tostring`）**用不上** —— 但打上**无害**（它只是把"原生构造器判定"改得更健壮）。
+   **English:** If you use neither Firefox nor Safari (including any browser on iOS), layer 3 is unnecessary — but harmless (it only makes the "native constructor" check more robust).
 2. **不是 `0.1.7-rc.2`**：请先跑 `node patch.mjs verify` 与 `node patch.mjs where`，看锚点是否匹配；**不匹配就别用**，把拒绝信息提给上游或反馈给作者。
    **English:** On other versions, run `verify` / `where` first; if anchors do not match, **do not use it** — report the refusal upstream or back to the author.
 
@@ -192,11 +192,11 @@ if (!remote) throw error;     // ★ 再抛（不吞真 bug）
 
 **English:** Counterfactuals (extracting the real code, not a rewrite): H1 → `loading`+`openError=null` becomes `error`+the real error; H2 → `loading` becomes `cold`; H3 → `loading` becomes `cold`.
 
-## ⭐ 第三层（2026-09-25 新增）：Firefox 兼容性 bug —— **根治** / Third layer: a Firefox compatibility bug — root-cause fix
+## ⭐ 第三层（2026-09-25 新增，2026-09-27 扩口径）：**Gecko / WebKit** 兼容性 bug —— **根治** / Third layer (added 2026-09-25, re-scoped 2026-09-27): a **Gecko / WebKit** compatibility bug — root-cause fix
 
-⚠️ 这一层**不是"兜底"，而是"根治"**：它修的是 `dsh-util-values` 里一个**通用判据**，DSH 在 **Firefox** 下会因此**误判一切普通对象**。
+⚠️ 这一层**不是"兜底"，而是"根治"**：它修的是 `dsh-util-values` 里一个**通用判据**，DSH 在 **Gecko（Firefox 系）与 WebKit（Safari / iOS 全家）** 下会因此**误判一切普通对象**。（原先只写成"Firefox"，2026-09-27 按三家引擎源码扩了口径 —— 见下方证据。）
 
-**English:** This layer is **not a safety net but a root-cause fix**. It repairs a **generic predicate** in `dsh-util-values` that makes DSH **misjudge every plain object** under **Firefox**.
+**English:** This layer is **not a safety net but a root-cause fix**. It repairs a **generic predicate** in `dsh-util-values` that makes DSH **misjudge every plain object** under **Gecko (Firefox family) and WebKit (Safari / iOS)**. (It used to say "Firefox" only; re-scoped 2026-09-27 from engine sources — evidence below.)
 
 **它治什么。** `hasIntrinsicConstructor` 用**硬编码的单行字符串**去比对 `Function.prototype.toString`：
 
@@ -206,10 +206,25 @@ return constructor.name === name
     && Function.prototype.toString.call(constructor) === `function ${name}() { [native code] }`;
 ```
 
-- **Chrome / Edge / V8（含 Node）**：返回 `function Object() { [native code] }`（**单行**）⇒ 相等 ⇒ 正常；
-- ⚠️ **Firefox**：返回「**多行 + 缩进**」`function Object() {\n    [native code]\n}` ⇒ **恒不相等**。
+**谁中招，取决于引擎对内置函数的 `toString` 排版**（ECMA-262 在这里是 **implementation-defined**，只能逐引擎看）：
 
-**English:** `hasIntrinsicConstructor` compares `Function.prototype.toString` against a **hard-coded single-line** string. Chrome/V8 (and Node) return a **single-line** form ⇒ equal ⇒ fine. ⚠️ **Firefox returns a multi-line, indented form** ⇒ the comparison is **never** true.
+| 引擎 / Engine | 浏览器 / Browser | 内置函数的 `toString` | 中招 |
+|---|---|---|---|
+| **V8 / Blink** | Chrome · Edge · Brave · Opera · Vivaldi · Electron · Android WebView | `function Object() { [native code] }`（**单行**） | ✅ 不中 |
+| **JavaScriptCore / WebKit** | ⭐ **Safari**、**iOS/iPadOS 上的一切浏览器**（Chrome/Firefox/Edge 的 iOS 版也是 WKWebView）、GNOME Web | `function Object() {\n    [native code]\n}`（**多行**） | ❌ 中招 |
+| **SpiderMonkey / Gecko** | **Firefox** · Waterfox · LibreWolf · Tor Browser · Pale Moon（Goanna） | 同上（**多行**） | ❌ 中招 |
+| **Hermes** | React Native | `function Object() { [native code] }`（**单行**） | ✅ 不中 |
+
+**证据（2026-09-27 采集，可复核）/ Evidence (collected 2026-09-27, reproducible)：**
+
+| 引擎 | 证据 |
+|---|---|
+| V8 | 本机 `node -e "Function.prototype.toString.call(Object)"` ⇒ `"function Object() { [native code] }"`（单行），与原判据**相等** |
+| WebKit | `Source/JavaScriptCore/runtime/FunctionPrototype.cpp` → `functionProtoFuncToString`：`jsMakeNontrivialString(globalObject, "function "_s, function->name(), "() {\n    [native code]\n}"_s)` |
+| Gecko | `js/src/vm/JSFunction.cpp:969`（及 `:1005`）：`if (!out.append("() {\n    [native code]\n}"))` |
+| Hermes | `lib/VM/JSLib/Function.cpp:140` / `:170`：`strBuf.append("() { [native code] }")` |
+
+**English:** Who is affected depends on how each engine formats `Function.prototype.toString` for built-ins — ECMA-262 leaves this **implementation-defined**, so it can only be checked per engine. V8/Blink and Hermes emit the **single-line** form (unaffected); **WebKit (Safari, and every browser on iOS) and Gecko (Firefox family) emit the multi-line form** ⇒ affected. Evidence: V8 measured locally on Node; WebKit's `FunctionPrototype.cpp` hard-codes `"() {\n    [native code]\n}"`; Gecko's `JSFunction.cpp:969` / `:1005` appends the same; Hermes' `Function.cpp:140` / `:170` appends the single-line form.
 
 ⇒ 后果链（每一环都用真代码复现过 / every link reproduced with the real code）：
 
@@ -228,7 +243,7 @@ ClientAssistantStream.replace                          ⇒ 抛 ⇒ 会话打不�
 | 疑问 / Question | 答案 / Answer |
 |---|---|
 | 为什么磁盘日志（86 会话 / 68026 条记录）全干净？ | **磁盘侧校验跑在 Node 里（单行格式）⇒ 正常通过** / disk-side validation runs in Node (single-line) ⇒ passes |
-| 为什么对象的「形状 dump」一切正常？ | **对象真的没问题，是判据在 Firefox 上失灵** / the object is fine — the predicate is broken on Firefox |
+| 为什么对象的「形状 dump」一切正常？ | **对象真的没问题，是判据在 Gecko / WebKit 上失灵** / the object is fine — the predicate is broken on Gecko / WebKit |
 | 为什么只有「正在生成」的会话才炸？ | **只有那条路会调 `snapshotChunk`** / only that path calls `snapshotChunk` |
 | 为什么在 Node 里测是合规的？ | **Node 的 `toString` 是单行格式** / Node's `toString` is single-line |
 
@@ -242,7 +257,7 @@ return constructor.name === name
 
 **English:** Fix — normalize runs of whitespace to a single space before comparing.
 
-**反事实对照**（把 `Function.prototype.toString` 覆写成 Firefox 的多行格式，跑**真代码**）：
+**反事实对照**（把 `Function.prototype.toString` 覆写成 **Gecko / WebKit** 的多行格式，跑**真代码**）：
 
 | 情形 / Case | 修复前 / Before | 修复后 / After |
 |---|---|---|
@@ -250,7 +265,7 @@ return constructor.name === name
 | `snapshotJsonValue({a: 1})` | ❌ `undefined` | ✅ 合规 / valid |
 | `isJsonValue(普通 chunk)` | ❌ `false` | ✅ `true` |
 
-**English:** Counterfactual — overriding `Function.prototype.toString` with Firefox's multi-line form and running the **real** code: before, all plain objects are judged invalid; after, all are valid.
+**English:** Counterfactual — overriding `Function.prototype.toString` with the **Gecko / WebKit** multi-line form and running the **real** code: before, all plain objects are judged invalid; after, all are valid.
 
 ⚠️ **影响面（已逐文件扫描）**：全机含该判据的 **69 个客户端 bundle 里只有 1 个**（`dsh-api-session-controller/lib/client.js`，也就是报错的那一份）⇒ 本补丁覆盖的正是**唯一受影响处**加上本体；其余（宿主 Node 侧）本就不受影响。
 这条也适合**反馈上游**：判据应规范化空白，或改用 `constructor.prototype === prototype` 判断，**不要依赖 `toString` 的具体排版**。
