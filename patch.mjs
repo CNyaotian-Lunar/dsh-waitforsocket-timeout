@@ -945,7 +945,7 @@ const UTV_PKG_REL = path.join('node_modules', '@deepseek-ai', 'dsh-util-values')
  * 修法：比较前把连续空白规范化为单个空格（一行内联，不引入新变量、避免命名冲突）。
  * 影响面：**只放宽"原生构造器判定"** —— 只会把"被误判为不合规"改回合规，**不会把非法值判成合法**。 */
 const FIREFOX_TS_BEFORE = 'return constructor.name === name && constructor.prototype === prototype && Function.prototype.toString.call(constructor) === `function ${name}() { [native code] }`;'
-const FIREFOX_TS_MARK = '/* PATCH(${MARK}:firefox-tostring) —— Gecko（Firefox 系）与 WebKit（Safari / iOS 全家）的 Function.prototype.toString 对内置函数返回「多行 + 缩进」，原判据硬编码单行 ⇒ 恒不相等 ⇒ 一切普通对象被判「不是无损 JSON」。修法：比较前规范化空白（只放宽，不会把非法判成合法）。 */'
+const FIREFOX_TS_MARK = `/* PATCH(${MARK}:firefox-tostring) —— Gecko（Firefox 系）与 WebKit（Safari / iOS 全家）的 Function.prototype.toString 对内置函数返回「多行 + 缩进」，原判据硬编码单行 ⇒ 恒不相等 ⇒ 一切普通对象被判「不是无损 JSON」。修法：比较前规范化空白（只放宽，不会把非法判成合法）。 */`
 const FIREFOX_TS_AFTER_BUN = FIREFOX_TS_MARK + '\n\t\t\treturn constructor.name === name && constructor.prototype === prototype && Function.prototype.toString.call(constructor).replace(/\\s+/g, " ").trim() === `function ${name}() { [native code] }`;'
 const FIREFOX_TS_AFTER_SRC = FIREFOX_TS_MARK + '\n\t\treturn constructor.name === name && constructor.prototype === prototype && Function.prototype.toString.call(constructor).replace(/\\s+/g, " ").trim() === `function ${name}() { [native code] }`;'
 
@@ -1011,7 +1011,7 @@ const TARGETS = [
 
 /** 某个补丁点是否已打（按 tag 精确匹配，避免与旧版无 tag 的标记混淆）。 */
 const markOf = (tag) => `PATCH(${MARK}:${tag})`
-const hasMark = (text, tag) => text.includes(markOf(tag))
+const hasMark = (text, tag) => text.includes(markOf(tag)) || text.includes('PATCH(${MARK}:' + tag + ')')
 
 console.log('DSH 根: ' + DSH_ROOT + (EXPLICIT_DSH ? '（来自 --dsh / $DSH_ROOT）' : '（**自动定位**）'))
 for (const t of TARGETS) console.log('  · ' + t.label + '\n      ' + t.file)
