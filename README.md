@@ -267,10 +267,13 @@ return constructor.name === name
 
 **English:** Counterfactual — overriding `Function.prototype.toString` with the **Gecko / WebKit** multi-line form and running the **real** code: before, all plain objects are judged invalid; after, all are valid.
 
-⚠️ **影响面（已逐文件扫描）**：全机含该判据的 **69 个客户端 bundle 里只有 1 个**（`dsh-api-session-controller/lib/client.js`，也就是报错的那一份）⇒ 本补丁覆盖的正是**唯一受影响处**加上本体；其余（宿主 Node 侧）本就不受影响。
+⚠️ **影响面（已逐文件扫描）/ Coverage (file-by-file scan)**：全机含该判据的 **69 个客户端 bundle 里只有 1 个**（`dsh-api-session-controller/lib/client.js`，也就是报错的那一份）⇒ 本补丁覆盖的正是**唯一受影响的客户端产物**，外加本体 `dsh-util-values`。
+
+上游另有 **6 个 latent 副本 —— 本补丁不覆盖，也不需要覆盖**：`dsh-tools`（`lib/index.js:64`、`lib/types/json-schema.js:50`）、`dsh-cordis-host-runner`（`lib/index.js:52`、`lib/types/guard.js:41`）、`dsh-ptc-runtime-node`（`lib/process.js:394`、`lib/index.js:552`，captured-intrinsic 变体 `intrinsicReflectApply(intrinsicFunctionToString, …)`）。它们**全部运行在宿主 Node / V8 上**，而 V8 的 native `toString` 是**单行**格式 ⇒ 判据成立、**当前不会触发**；只有当宿主换成非 V8 引擎（JSC / SpiderMonkey 类运行时）时才需要一起修。这一判断与上游社区自己的核实一致（#5677 里 `argszero` 把这 4 处源标为 "latent"，`khanecho` 另附了参考 diff）。
+
 这条也适合**反馈上游**：判据应规范化空白，或改用 `constructor.prototype === prototype` 判断，**不要依赖 `toString` 的具体排版**。
 
-**English:** Scope (file-by-file scan): among the 69 client bundles on the machine, **only one** inlines this predicate — the one that errors. This patch covers that file plus the canonical module; host-side (Node) copies are unaffected anyway. Worth **reporting upstream**: normalize whitespace, or rely on `constructor.prototype === prototype` instead of the exact `toString` formatting.
+**English:** Scope (file-by-file scan): among the 69 client bundles on the machine, **only one** inlines this predicate — the one that errors. This patch covers that artifact plus the canonical `dsh-util-values` module. Upstream carries **6 further latent copies, which this patch does not cover and does not need to**: `dsh-tools` (`lib/index.js:64`, `lib/types/json-schema.js:50`), `dsh-cordis-host-runner` (`lib/index.js:52`, `lib/types/guard.js:41`) and `dsh-ptc-runtime-node` (`lib/process.js:394`, `lib/index.js:552` — the captured-intrinsic variant). They all run on the **host Node / V8**, whose native `toString` is **single-line**, so the predicate holds and they **cannot trigger today**; they would only matter if the host were moved to a non-V8 engine. This matches the upstream community's own verification (`argszero` marks the same four sources "latent" in #5677, where `khanecho` also attached a reference diff). Worth **reporting upstream**: normalize whitespace, or rely on `constructor.prototype === prototype` instead of the exact `toString` formatting.
 
 ## ✅ 基线验证：锚点基于官方 `0.1.7-rc.2`（2026-09-25）
 
