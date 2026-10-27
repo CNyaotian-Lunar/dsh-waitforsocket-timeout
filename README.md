@@ -25,13 +25,12 @@
 |---|---|
 | DSH | **`0.1.7-rc.2`** |
 | 受补丁的包 / Patched packages | `@deepseek-ai/dsh-api-gateway`、`@deepseek-ai/dsh-api-session-controller`、`@deepseek-ai/dsh-client-ui-chat`、`@deepseek-ai/dsh-util-values` —— **均为 `0.1.7-rc.2`** |
-| 操作系统 / OS | **Windows 11 家庭版（build 26200）** |
+| 操作系统 / OS | **Windows 11** |
 | 浏览器 / Browser | ⭐ **Firefox**（作者实测）—— 第 3 层的 bug 出现在**一切对内置函数返回「多行 `toString`」的引擎**上：**Gecko（Firefox / Waterfox / LibreWolf / Tor Browser）** 与 **WebKit（Safari、iOS/iPadOS 上的一切浏览器）**；**Chrome / Edge / Brave / Opera 等 V8 系不触发**（2026-09-27 按三家引擎源码扩口径，详见第三层） |
-| Node | `v24.20.0` |
+| Node | `v24.x` |
 | 安装形态 / Install layout | 自定义安装根（**任意路径均可**）+ profile 在 `~/.dsh/profiles/web` |
-| 端口 / Port | 12073（**与补丁无关**，仅说明作者环境） |
 
-**English:** DSH `0.1.7-rc.2`; the four patched packages are all `0.1.7-rc.2`; OS Windows 11 (build 26200); browser **Firefox** (the author's test browser — the layer-3 bug hits **any engine whose `Function.prototype.toString` returns the multi-line form for built-ins**: **Gecko (Firefox family) and WebKit (Safari, plus every browser on iOS)**; it does **not** trigger on V8 (Chrome / Edge / Brave / Opera); re-scoped 2026-09-27 from engine sources, see layer 3); Node `v24.20.0`; custom install root + profile under `~/.dsh/profiles/web`; port 12073 (irrelevant to the patch, context only).
+**English:** DSH `0.1.7-rc.2`; the four patched packages are all `0.1.7-rc.2`; OS Windows 11; browser **Firefox** (the author's test browser — the layer-3 bug hits **any engine whose `Function.prototype.toString` returns the multi-line form for built-ins**: **Gecko (Firefox family) and WebKit (Safari, plus every browser on iOS)**; it does **not** trigger on V8 (Chrome / Edge / Brave / Opera); re-scoped 2026-09-27 from engine sources, see layer 3); Node `v24.x`; custom install root + profile under `~/.dsh/profiles/web`.
 
 ⇒ 由此推出两点 / two consequences：
 
